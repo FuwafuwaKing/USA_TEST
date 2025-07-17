@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>加速度・ジャイロセンサー</title>
+    <style>
+        body { font-family: sans-serif; margin: 20px; }
+        div { margin-bottom: 10px; }
+        button { padding: 10px 20px; font-size: 16px; cursor: pointer; }
+        #status-message { color: blue; margin-top: 15px; }
+    </style>
+</head>
+<body>
+    <h1>!!加速度・ジャイロセンサーデータ!!</h1>
+    <button id="requestSensorPermission">センサーデータ取得開始</button>
+    <p id="status-message">センサーアクセスを許可してください。</p>
+
+    <div>
+        <p>加速度 (m/s²):</p>
+        <ul>
+            <li>X軸: <span id="acceleration-x">N/A</span></li>
+            <li>Y軸: <span id="acceleration-y">N/A</span></li>
+            <li>Z軸: <span id="acceleration-z">N/A</span></li>
+        </ul>
+    </div>
+    <div>
+        <p>回転速度 (rad/s):</p>
+        <ul>
+            <li>α (アルファ): <span id="rotation-alpha">N/A</span></li>
+            <li>β (ベータ): <span id="rotation-beta">N/A</span></li>
+            <li>γ (ガンマ): <span id="rotation-gamma">N/A</span></li>
+        </ul>
+    </div>
+
+    <script>
+        const statusMessage = document.getElementById('status-message');
+        const requestButton = document.getElementById('requestSensorPermission');
+
+        // センサーイベントリスナーを登録する関数
+        function setupSensorListeners() {
+            if (window.DeviceMotionEvent) {
+                window.addEventListener('devicemotion', function(event) {
+                    const acc = event.accelerationIncludingGravity;
+                    document.getElementById('acceleration-x').textContent = acc.x ? acc.x.toFixed(2) : 'N/A';
+                    document.getElementById('acceleration-y').textContent = acc.y ? acc.y.toFixed(2) : 'N/A';
+                    document.getElementById('acceleration-z').textContent = acc.z ? acc.z.toFixed(2) : 'N/A';
+
+                    const rotRate = event.rotationRate;
+                    document.getElementById('rotation-alpha').textContent = rotRate.alpha ? rotRate.alpha.toFixed(2) : 'N/A';
+                    document.getElementById('rotation-beta').textContent = rotRate.beta ? rotRate.beta.toFixed(2) : 'N/A';
+                    document.getElementById('rotation-gamma').textContent = rotRate.gamma ? rotRate.gamma.toFixed(2) : 'N/A';
+                });
+                statusMessage.textContent = 'センサーデータを受信中...';
+            } else {
+                statusMessage.textContent = 'お使いのブラウザはDeviceMotionEventをサポートしていません。';
+                document.body.innerHTML += "<p>お使いのブラウザはDeviceMotionEventをサポートしていません。</p>";
+            }
+        }
+
+        // ボタンクリック時の処理
+        requestButton.addEventListener('click', async function() {
+            // iOS 13+ のSafariで権限リクエストが必要かチェック
+            if (typeof DeviceMotionEvent.requestPermission === 'function') {
+                try {
+                    const permissionState = await DeviceMotionEvent.requestPermission();
+                    if (permissionState === 'granted') {
+                        setupSensorListeners();
+                        requestButton.style.display = 'none'; // ボタンを非表示にする
+                    } else {
+                        statusMessage.textContent = 'センサーアクセスが拒否されました。設定を確認してください。';
+                    }
+                } catch (error) {
+                    statusMessage.textContent = 'センサーアクセスリクエスト中にエラーが発生しました: ' + error.message;
+                    console.error('DeviceMotionEvent permission error:', error);
+                }
+            } else {
+                // iOS 12以前やAndroidなど、requestPermissionが不要なブラウザ
+                setupSensorListeners();
+                requestButton.style.display = 'none'; // ボタンを非表示にする
+            }
+        });
+
+        // ページロード時に、requestPermissionが必要ない場合は自動で開始できるが、
+        // iPhone対応のためにはボタンクリックを待つのが最も確実。
+        // ここではボタンクリックを待つため、初期状態ではリスナーは登録しない。
+        // もし、requestPermissionが不要な環境（Androidなど）でボタンなしで即座に開始したい場合は、
+        // この場所に setupSensorListeners() を呼び出すロジックを追加することもできます。
+        // その場合、requestButton.style.display = 'none'; も必要です。
+    </script>
+</body>
+</html>
