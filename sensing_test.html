@@ -33,6 +33,15 @@
         </ul>
     </div>
 
+    <h1>!!カメラデータ!!</h1>
+    <video id="cameraFeed" width="320" height="240" autoplay playsinline></video>
+    <canvas id="imageCanvas" width="320" height="240" style="display:none;"></canvas>
+    <div>
+        <button id="startCamera">カメラ起動</button>
+        <button id="captureImage" style="display:none;">表情を撮影</button>
+    </div>
+    <pre id="status-message-camera" style="white-space: pre-wrap; word-wrap: break-word;">カメラアクセスを許可してください。</pre>
+
     <script>
         const statusMessage = document.getElementById('status-message');
         const requestButton = document.getElementById('requestSensorPermission');
@@ -87,6 +96,46 @@
         // もし、requestPermissionが不要な環境（Androidなど）でボタンなしで即座に開始したい場合は、
         // この場所に setupSensorListeners() を呼び出すロジックを追加することもできます。
         // その場合、requestButton.style.display = 'none'; も必要です。
+
+        // カメラ関連の処理
+        const startCameraButton = document.getElementById('startCamera');
+        const captureImageButton = document.getElementById('captureImage');
+        const videoElement = document.getElementById('cameraFeed');
+        const canvasElement = document.getElementById('imageCanvas');
+        const statusMessageCamera = document.getElementById('status-message-camera');
+
+        startCameraButton.addEventListener('click', async function() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false }); // カメラのストリームを取得
+                videoElement.srcObject = stream;
+                startCameraButton.style.display = 'none';
+                captureImageButton.style.display = 'inline-block';
+                statusMessageCamera.textContent = 'カメラが起動しました。表情を撮影できます。';
+            } catch (error) {
+                statusMessageCamera.textContent = 'カメラアクセスリクエスト中にエラーが発生しました: ' + error.message;
+                console.error('Camera error:', error);
+            }
+        });
+
+        captureImageButton.addEventListener('click', function() {
+            canvasElement.width = videoElement.videoWidth;
+            canvasElement.height = videoElement.videoHeight;
+            const context = canvasElement.getContext('2d');
+            context.drawImage(videoElement, 0, 0, canvasElement.width, canvasElement.height);
+            const base64Image = canvasElement.toDataURL('image/jpeg').replace(/^data:image\/jpeg;base64,/, ""); // Google Vision APIはヘッダー部分('data:image/jpeg;base64,')が不要なため、正規表現で削除
+            // Google Vision APIに送信するためのJSONオブジェクトを作成
+            const requestData = {
+                requests: [{
+                    image: {
+                        content: base64Image
+                    },
+                    features: [{
+                        type: "FACE_DETECTION"
+                    }]
+                }]
+            }
+            statusMessageCamera.textContent = JSON.stringify(requestData, null, 2);
+        });
     </script>
 </body>
 </html>
