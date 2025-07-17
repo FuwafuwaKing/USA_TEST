@@ -33,14 +33,18 @@
         </ul>
     </div>
 
-    <h1>!!カメラデータ!!</h1>
+    <h1>!!カメラ・音声データ!!</h1>
     <video id="cameraFeed" width="320" height="240" autoplay playsinline></video>
     <canvas id="imageCanvas" width="320" height="240" style="display:none;"></canvas>
     <div>
-        <button id="startCamera">カメラ起動</button>
-        <button id="captureImage" style="display:none;">表情を撮影</button>
+        <button id="startCameraMic">カメラとマイクを起動</button>
+        <button id="captureImageAndRecordAudio" style="display:none;">表情を撮影＆録音開始</button>
+        <button id="stopRecording" style="display:none;">録音停止</button>
     </div>
+    <h3>Google Vision API用データ（表情）</h3>
     <pre id="status-message-camera" style="white-space: pre-wrap; word-wrap: break-word;">カメラアクセスを許可してください。</pre>
+    <h3>Google Speech-to-Text API用データ（音声）</h3>
+    <pre id="status-message-mic" style="white-space: pre-wrap; word-wrap: break-word;">マイクアクセスを許可してください。</pre>
 
     <script>
         const statusMessage = document.getElementById('status-message');
@@ -97,34 +101,44 @@
         // この場所に setupSensorListeners() を呼び出すロジックを追加することもできます。
         // その場合、requestButton.style.display = 'none'; も必要です。
 
-        // カメラ関連の処理
-        const startCameraButton = document.getElementById('startCamera');
-        const captureImageButton = document.getElementById('captureImage');
+        // カメラ・マイク関連の処理
+        const startCameraMicButton = document.getElementById('startCameraMic');
+        const captureImageAndRecordAudioButton = document.getElementById('captureImageAndRecordAudio');
+        const stopRecordingButton = document.getElementById('stopRecording');
+
         const videoElement = document.getElementById('cameraFeed');
         const canvasElement = document.getElementById('imageCanvas');
-        const statusMessageCamera = document.getElementById('status-message-camera');
 
-        startCameraButton.addEventListener('click', async function() {
+        const statusMessageCamera = document.getElementById('status-message-camera');
+        const statusMessageMic = document.getElementById('status-message-mic');
+
+        let mediaRecorder; // 録音機能を制御
+        let audioChunks = []; // 録音した音声データを保存
+        let mediaStream; // カメラとマイクのストリームを保持
+
+        startCameraMicButton.addEventListener('click', async function() {
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false }); // カメラのストリームを取得
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                mediaStream = stream;
                 videoElement.srcObject = stream;
-                startCameraButton.style.display = 'none';
-                captureImageButton.style.display = 'inline-block';
-                statusMessageCamera.textContent = 'カメラが起動しました。表情を撮影できます。';
+                startCameraMicButton.style.display = 'none';
+                captureImageAndRecordAudioButton.style.display = 'inline-block';
+                statusMessageCamera.textContent = 'カメラとマイクの準備ができました。';
             } catch (error) {
-                statusMessageCamera.textContent = 'カメラアクセスリクエスト中にエラーが発生しました: ' + error.message;
+                statusMessageCamera.textContent = 'カメラ・マイクアクセスリクエスト中にエラーが発生しました: ' + error.message;
                 console.error('Camera error:', error);
             }
         });
 
-        captureImageButton.addEventListener('click', function() {
+        captureImageAndRecordAudioButton.addEventListener('click', function() {
+            // 表情の撮影処理
             canvasElement.width = videoElement.videoWidth;
             canvasElement.height = videoElement.videoHeight;
             const context = canvasElement.getContext('2d');
             context.drawImage(videoElement, 0, 0, canvasElement.width, canvasElement.height);
             const base64Image = canvasElement.toDataURL('image/jpeg').replace(/^data:image\/jpeg;base64,/, ""); // Google Vision APIはヘッダー部分('data:image/jpeg;base64,')が不要なため、正規表現で削除
             // Google Vision APIに送信するためのJSONオブジェクトを作成
-            const requestData = {
+            const imageRequestData = {
                 requests: [{
                     image: {
                         content: base64Image
@@ -133,8 +147,53 @@
                         type: "FACE_DETECTION"
                     }]
                 }]
+            };
+            statusMessageCamera.textContent = JSON.stringify(imageRequestData, null, 2);
+
+            // 音声の録音処理
+            if (mediaStream) {
+                audioChunks = []; // 録音データをリセット
+                mediaRecorder = new MediaRecorder(mediaStream);
+                mediaRecorder.addEventListener('dataavailable', function(event) {
+                    audioChunks.push(event.data);
+                });
+                mediaRecorder.addEventListener('stop', function() {
+                    const audioBlob = new Blob(audioChunks);
+                    const reader = new FileReader();
+                    reader.readAsDataURL(audioBlob);
+                    reader.onloadend = function() {
+                        const base64Audio = reader.result.split(',')[1]; // Google Speech-to-Text APIはヘッダー部分('data:audio/webm;base64,')が不要なため、正規表現で削除
+                        // Google Speech-to-Text APIに送信するためのJSONオブジェクトを作成
+                        const audioRequestData = {
+                            config: {
+                                encoding: "WEBM_OPUS",
+                                sampleRateHertz: 48000,
+                                languageCode: "ja-JP"
+                            },
+                            audio: {
+                                content: base64Audio
+                            }
+                        };
+                        statusMessageMic.textContent = JSON.stringify(audioRequestData, null, 2);
+                    };
+                });
+
+                mediaRecorder.start();
+
+                captureImageAndRecordAudioButton.style.display = 'none';
+                stopRecordingButton.style.display = 'inline-block';
+                statusMessageMic.textContent = '音声の録音を開始しました。';
             }
-            statusMessageCamera.textContent = JSON.stringify(requestData, null, 2);
+        });
+
+        stopRecordingButton.addEventListener('click', function() {
+            if (mediaRecorder) {
+                mediaRecorder.stop();
+
+                stopRecordingButton.style.display = 'none';
+                captureImageAndRecordAudioButton.style.display = 'inline-block';
+                statusMessageMic.textContent = '音声の録音が停止されました。';
+            }
         });
     </script>
 </body>
