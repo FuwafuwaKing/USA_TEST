@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AIによるリアルタイム生成ホラー</title>
+    <style>
+        body { font-family: sans-serif; margin: 20px; }
+        div { margin-bottom: 10px; }
+        button { padding: 10px 20px; font-size: 16px; cursor: pointer; }
+        #status-message { color: blue; margin-top: 15px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>AIによるリアルタイム生成ホラー</h1>
+        <div class="status">
+            <p id="status-message">各センサーへのアクセスを許可してください...</p>
+        </div>
+
+        <video id="camera-feed" autoplay playsinline muted></video>
+        <canvas id="image-canvas" style="display:none;"></canvas>
+
+        <div class="controls">
+            <button id="reaction-button" disabled>反応</button>
+            <button id="stop-recording-button" style="display:none;">録音停止</button>
+        </div>
+
+        <h2>API用データ</h2>
+        <pre id="output-data"></pre>
+    </div>
+
+    <script>
+        const statusMessage = document.getElementById('status-message');
+        const videoElement = document.getElementById('camera-feed');
+        const canvasElement = document.getElementById('image-canvas');
+        const reactionButton = document.getElementById('reaction-button');
+        const stopRecordingButton = document.getElementById('stop-recording-button');
+        const outputData = document.getElementById('output-data');
+
+        let mediaStream;
+        let mediaRecorder;
+        let audioChunks = [];
+        let accelHistory = [];
+        let accelListener = null;
+        let accelInterval = null;
+
+        // センサーの初期化
+        window.onload = async () => {
+            try {
+                // カメラとマイクのアクセスを要求
+                statusMessage.textContent = "カメラとマイクへのアクセスを要求しています...";
+                mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+
+                // 加速度センサーのアクセスを要求
+                statusMessage.textContent = "加速度センサーへのアクセスを要求しています...";
+                // iOS 13+ のSafariで権限リクエストが必要かチェック
+                if (typeof DeviceMotionEvent.requestPermission === 'function') {
+                    const permissionState = await DeviceMotionEvent.requestPermission();
+                    if (permissionState !== "granted") {
+                        throw new Error("加速度センサーへのアクセスが拒否されました。設定を確認してください。");
+                    }
+                }
+
+                startInitialProcess();
+            } catch (error) {
+                statusMessage.textContent = `エラー: ${error.message}`;
+                console.error("センサーの初期化エラー：", error);
+            }
+        };
+
+        function startInitialProcess() {
+            // カメラスタート
+            videoElement.srcObject = mediaStream;
+            videoElement.play();
+
+            // 加速度センサーの記録スタート
+            accelListener = (event) => {
+                const acc = event.accelerationIncludingGravity;
+                accelHistory.push({
+                    x: acc.x,
+                    y: acc.y,
+                    z: acc.z,
+                    timestamp: Date.now()
+                });
+            };
+            window.addEventListener('devicemotion', accelListener);
+
+            statusMessage.textContent = "センサーの初期化が完了しました。ボタンを押してデータを取得してください。";
+            reactionButton.disabled = false;
+        }
+
+        // 反応ボタンのクリックイベント
+        reactionButton.addEventListener('click', () => {
+            outputData.textContent = "データを取得中...";
+
+            const accelVariance = processAccelData();
+            const visionAPIData = processCameraData();
+            const speechAPIData = "録音中...";
+            startAudioRecording();
+
+            outputData.textContent = JSON.stringify({
+                acceleration: accelVariance,
+                vision: visionAPIData,
+                speech: speechAPIData
+            }, null, 2);
+
+            reactionButton.style.display = 'none';
+            stopRecordingButton.style.display = 'inline-block';
+        });
+
+        // 録音停止ボタンのクリックイベント
+        stopRecordingButton.addEventListener('click', () => {
+            if (mediaRecorder) {
+                mediaRecorder.stop();
+            }
+        });
+
+        // 加速度センサーのデータ処理
+        function processAccelData() {
+            if (accelHistory.length < 2) {
+                return { normVariance: 0 };
+            }
+            const norms = accelHistory.map(data => Math.sqrt(data.x ** 2 + data.y ** 2 + data.z ** 2)); // ベクトルの長さ
+            const mean = norms.reduce((sum, val) => sum + val, 0) / norms.length; // 平均値
+            const variance = norms.reduce((sum, val) => sum + (val - mean) ** 2, 0) / norms.length; // 分散
+
+            accelHistory = []; // データをクリア
+            return { normVariance: variance.toFixed(4) };
+        }
+
+        // カメラデータの処理
+        function processCameraData() {
+            // 表情の撮影処理
+            canvasElement.width = videoElement.videoWidth;
+            canvasElement.height = videoElement.videoHeight;
+            const context = canvasElement.getContext('2d');
+            context.drawImage(videoElement, 0, 0, canvasElement.width, canvasElement.height);
+            const base64Image = canvasElement.toDataURL('image/jpeg').replace(/^data:image\/jpeg;base64,/, ""); // Google Vision APIはヘッダー部分('data:image/jpeg;base64,')が不要なため、正規表現で削除
+            // Google Vision APIに送信するためのJSONオブジェクトを作成
+            return {
+                requests: [{
+                    image: {
+                        content: base64Image
+                    },
+                    features: [{
+                        type: "FACE_DETECTION"
+                    }]
+                }]
+            };
+        }
+
+        // 音声の録音処理
+        function startAudioRecording() {
+            audioChunks = []; // 録音データをリセット
+            mediaRecorder = new MediaRecorder(mediaStream);
+            mediaRecorder.addEventListener('dataavailable', event => {
+                audioChunks.push(event.data);
+            });
+            mediaRecorder.addEventListener('stop', () => {
+                const audioBlob = new Blob(audioChunks);
+                const reader = new FileReader();
+                reader.readAsDataURL(audioBlob);
+                reader.onloadend = function() {
+                    const base64Audio = reader.result.split(',')[1]; // Google Speech-to-Text APIはヘッダー部分('data:audio/webm;base64,')が不要なため、正規表現で削除
+                    // Google Speech-to-Text APIに送信するためのJSONオブジェクトを作成
+                    const speechAPIData = {
+                        config: {
+                            encoding: "WEBM_OPUS",
+                            sampleRateHertz: 48000,
+                            languageCode: "ja-JP"
+                        },
+                        audio: {
+                            content: base64Audio
+                        }
+                    };
+                    // 音声データを出力データに追加
+                    const finalData = JSON.parse(outputData.textContent);
+                    finalData.speech = speechAPIData;
+                    outputData.textContent = JSON.stringify(finalData, null, 2);
+
+                    stopRecordingButton.style.display = 'none';
+                    reactionButton.style.display = 'inline-block';
+                };
+            });
+
+            mediaRecorder.start();
+        }
+    </script>
+</body>
+</html>
