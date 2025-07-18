@@ -1,1 +1,14 @@
+# .gitignore
+
+# Node.js
+node_modules/
+
+# Environment variables
 .env
+
+# Google Cloud Credentials
+gcp-credentials.json
+*.json 
+
+# Old HTML file with secrets
+GCP_Vision.html
