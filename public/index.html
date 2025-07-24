@@ -5,36 +5,136 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AIインタラクティブホラー</title>
     <link rel="stylesheet" href="style.css">
-</head>
+    </head>
 <body>
 
-<div id="container">
+<div id="container" class="landing-page">
     <h1>AIインタラクティブホラー 👻</h1>
 
-    <div id="camera-container">
-        <video id="camera-preview" autoplay muted playsinline></video>
-        <canvas id="capture-canvas" style="display:none;"></canvas>
-        <div id="emotion-status-container">
-            現在の感情: <span id="emotion-status">分析中...</span>
-        </div>
-    </div>
-    
-    <div id="story-container">ここに物語が表示されます...</div>
+    <p class="description">
+        AIが語るホラー物語に、あなたの声と表情、そしてデバイスの動きで介入しましょう。
+        恐怖の展開は、あなたの反応次第で変化します。
+    </p>
 
-    <div id="transcript-container" class="user-input-area">
-        <div id="transcript-status">🎤 マイクに話しかけてください...</div>
-        <p id="transcript-text"></p>
+    <div class="landing-buttons">
+        <button id="start-game-btn" class="landing-button">怪談開始</button>
+        <a href="/history.html" class="landing-button history-button">セッション履歴</a>
     </div>
 
-    <div class="user-input-area">
-        <button id="submit-btn">この内容で続きを生成</button>
+    <div id="permission-check-area" style="display: none;">
+        <video id="permission-video-preview" autoplay muted playsinline style="width:1px; height:1px; position:absolute; top:0; left:0;"></video>
     </div>
+    <div id="permission-message" class="error-message" style="display: none; margin-top: 20px;"></div>
 
-    <div id="loader">生成中...</div>
-    <div id="error-message" class="error-message"></div>
 </div>
 
-<script src="script.js"></script>
+<script>
+    // 最初のページ用スクリプト
+    document.addEventListener('DOMContentLoaded', () => {
+        const startGameBtn = document.getElementById('start-game-btn');
+        const permissionVideoPreview = document.getElementById('permission-video-preview');
+        const permissionMessage = document.getElementById('permission-message');
+
+        startGameBtn.addEventListener('click', async () => {
+            // カメラとマイクの許可を取る
+            permissionMessage.style.display = 'block';
+            permissionMessage.textContent = 'カメラとマイクの許可を求めています...';
+
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: true,
+                    audio: true
+                });
+
+                // プレビューはしないが、ストリームを一時的にvideo要素に割り当てておく
+                // これにより、ブラウザは許可が取れたと認識し、アイコン表示などを更新する
+                if (permissionVideoPreview) {
+                    permissionVideoPreview.srcObject = stream;
+                }
+
+                // 加速度センサーのパーミッションもここで試みる（iOS 13+）
+                if (typeof DeviceMotionEvent.requestPermission === 'function') {
+                    try {
+                        const permissionState = await DeviceMotionEvent.requestPermission();
+                        if (permissionState === 'granted') {
+                            console.log('加速度センサーのパーミッションが許可されました。');
+                        } else {
+                            console.warn('加速度センサーのパーミッションが拒否されました。恐怖度推定の精度が落ちる可能性があります。');
+                            permissionMessage.textContent += ' (加速度センサーの利用が許可されませんでした)';
+                        }
+                    } catch (error) {
+                        console.error('加速度センサーのパーミッション要求に失敗しました:', error);
+                        permissionMessage.textContent += ' (加速度センサーのパーミッション要求中にエラー)';
+                    }
+                } else {
+                    console.log('加速度センサーのパーミッションAPIは不要です。');
+                }
+
+                permissionMessage.textContent = '許可が取得できました。ゲームを開始します...';
+                // ストリームを停止し、デバイスのLEDなどを消灯させる
+                stream.getTracks().forEach(track => track.stop());
+                
+                // ゲーム本体のページにリダイレクト
+                window.location.href = '/game.html';
+
+            } catch (err) {
+                console.error("メディアデバイスへのアクセスに失敗:", err);
+                permissionMessage.textContent = 'カメラまたはマイクのアクセスが拒否されました。ブラウザの権限を確認してください。';
+                startGameBtn.disabled = false; // ボタンを再度有効にする
+            }
+        });
+    });
+</script>
+
+<style>
+    .landing-page {
+        text-align: center;
+        padding: 50px;
+        margin-top: 100px;
+    }
+    .landing-page h1 {
+        font-size: 2.5em;
+        margin-bottom: 30px;
+    }
+    .landing-page .description {
+        font-size: 1.1em;
+        line-height: 1.8;
+        margin-bottom: 40px;
+        max-width: 500px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+    .landing-buttons {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        max-width: 300px;
+        margin: 0 auto;
+    }
+    .landing-button {
+        padding: 15px 30px;
+        border-radius: 8px;
+        border: none;
+        background-color: #bb86fc; /* Primary color */
+        color: #121212;
+        font-weight: bold;
+        font-size: 1.2em;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+        text-decoration: none; /* for anchor tag */
+        display: block; /* for anchor tag to behave like a block button */
+    }
+    .landing-button:hover {
+        background-color: #8a2be2; /* Darker purple on hover */
+    }
+    .landing-button.history-button {
+        background-color: #03dac6; /* Secondary color */
+        color: #121212;
+    }
+    .landing-button.history-button:hover {
+        background-color: #018786; /* Darker teal on hover */
+    }
+</style>
 
 </body>
 </html>

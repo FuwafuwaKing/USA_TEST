@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>セッションプレビュー</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .preview-container {
+            max-width: 800px;
+            margin: 20px auto;
+            background-color: #1e1e1e;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+            color: #e0e0e0;
+        }
+        .preview-container h2 {
+            color: #bb86fc;
+            text-align: center;
+            margin-bottom: 25px;
+        }
+        .chart-container {
+            width: 100%;
+            height: 300px; /* グラフの高さ */
+            margin-bottom: 30px;
+            background-color: #2c2c2c;
+            border-radius: 4px;
+            padding: 15px;
+        }
+        .conversation-history {
+            background-color: #2c2c2c;
+            border-radius: 4px;
+            padding: 20px;
+            max-height: 500px;
+            overflow-y: auto;
+            line-height: 1.6;
+        }
+        .conversation-history p {
+            margin-bottom: 10px;
+        }
+        .conversation-history .user-prompt {
+            color: #81d4fa;
+            font-style: italic;
+            border-left: 3px solid #81d4fa;
+            padding-left: 10px;
+        }
+        .conversation-history .assistant-response {
+            color: #e0e0e0;
+            border-left: 3px solid #6200ee;
+            padding-left: 10px;
+        }
+        .back-button-container {
+            text-align: center;
+            margin-top: 30px;
+        }
+        .back-button {
+            padding: 12px 25px;
+            border-radius: 4px;
+            border: none;
+            background-color: #03dac6;
+            color: #121212;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            font-size: 16px;
+            text-decoration: none; /* リンクとして使う場合 */
+        }
+        .back-button:hover {
+            background-color: #018786;
+        }
+    </style>
+</head>
+<body>
+    <div class="preview-container">
+        <h2 id="session-title">セッションプレビュー</h2> 
+        <p id="session-id-display" style="font-size: 0.8em; color: #aaa; text-align: center; margin-top: -15px; margin-bottom: 20px; word-break: break-all;"></p>
+        
+        <h3>恐怖度推移グラフ</h3>
+        <div class="chart-container">
+            <canvas id="fearScoreChart"></canvas>
+        </div>
+
+        <h3>会話履歴</h3>
+        <div id="conversation-display" class="conversation-history">
+            </div>
+
+        <div class="back-button-container">
+            <a href="/history.html" class="back-button">全セッション履歴に戻る</a>
+        </div>
+    </div>
+
+    <script src="preview-script.js"></script>
+</body>
+</html>
