@@ -32,7 +32,6 @@ const availableSoundEffects = [
     { name: '水滴の音', file: 'SoundEffects/waterdrop.mp3' },
     { name: '風の音', file: 'SoundEffects/wind.mp3' },
     { name: '静かなノック音', file: 'SoundEffects/windowKnock.mp3' },
-    { name: '効果音なし', file: 'none'}
 ];
 
 const app = express();
@@ -155,7 +154,7 @@ app.post('/generate-story', async (req, res) => {
           必ず以下のJSON形式だけで応答してください。
           {
           "story": "ここに物語の続きの文章（1～2文）を記述",
-          "soundEffect": "物語の雰囲気に最も合う効果音を、提示されたリストの中から選び、その「ファイル名」だけを記述。例: 'SoundEffects/doorKnock.mp3'。なければ'none'とする。",
+          "soundEffect": "物語の雰囲気に最も合う効果音を、提示されたリストの中から選び、その「ファイル名」だけを記述。例: 'SoundEffects/doorKnock.mp3'。必ずリストの中から一つ選ぶこと。",
           "isLastPart": trueかfalseのboolean値。物語を完結させるべきと判断したらtrueにする。
           }`;
 
