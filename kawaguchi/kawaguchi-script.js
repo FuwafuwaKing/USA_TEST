@@ -6,11 +6,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- DOM要素の取得 ---
     const storyContainer = document.getElementById('story-container');
     const submitBtn = document.getElementById('submit-btn');
-    const loader = document.getElementById('loader'); // ★重要: loaderを再度追加
-    const errorMessage = document.getElementById('error-message'); // ★重要: errorMessageを再度追加
+    const loader = document.getElementById('loader');
+    const errorMessage = document.getElementById('error-message');
     const cameraPreview = document.getElementById('camera-preview');
-    const captureCanvas = document.getElementById('capture-canvas'); // 正しい記述
-    const emotionStatus = document.getElementById('emotion-status'); // ★重要: emotionStatusを再度追加
+    const captureCanvas = document.getElementById('capture-canvas');
+    const emotionStatus = document.getElementById('emotion-status');
     const transcriptText = document.getElementById('transcript-text');
     const transcriptStatus = document.getElementById('transcript-status');
     const startBtn = document.getElementById('start-btn');
@@ -155,57 +155,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    submitBtn.addEventListener('click', async () => {
-        const userText = finalTranscript + interimTranscript;
-        if (!userText.trim()) { displayError("文字起こしされたテキストがありません。"); return; }
-        
-        if (emotionUpdateInterval) clearInterval(emotionUpdateInterval);
-        setLoading(true);
-
-        try {
-            appendMessageToStory(`あなた: 「${userText}」`, 'user-prompt');
-
-            const response = await fetch(`${serverUrl}/generate-story`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    userText: userText,
-                    messageHistory: messageHistory,
-                    emotionHistory: emotionHistoryLog,
-                }),
-            });
-
-            if (!response.ok) {
-                const errData = await response.json();
-                console.error('Story generation failed with response:', response.status, errData); // エラーレスポンスを詳しくログに出す
-                throw new Error(errData.error || '物語の生成に失敗しました。');
-            }
-
-            const data = await response.json();
-            messageHistory = data.updatedHistory;
-            appendMessageToStory(data.newStoryPart, 'assistant-response');
-            
-            if (data.audioBase64) {
-                if (audioContext.state === 'suspended') {
-                    await audioContext.resume();
-                }
-                await playAudio(data.audioBase64);
-            }
-
-            finalTranscript = '';
-            interimTranscript = '';
-            transcriptText.textContent = '';
-            emotionHistoryLog = [];
-
-        } catch (error) {
-            console.error("物語生成エラー:", error);
-            displayError(error.message);
-        } finally {
-            setLoading(false);
-            emotionUpdateInterval = setInterval(updateEmotionPreview, 1000);
-        }
-    });
-
     /**
      * Base64形式の音声データをデコードして再生する関数
      * @param {string} base64String - Base64エンコードされた音声データ
@@ -234,6 +183,103 @@ document.addEventListener('DOMContentLoaded', () => {
             displayError('音声再生中にエラーが発生しました。ブラウザのコンソールを確認してください。');
         }
     }
+
+    /**
+     * 効果音ファイルをロードして再生する関数
+     * @param {string} soundEffectPath - 効果音ファイルのパス (例: 'SoundEffects/bell.mp3')
+     */
+    async function playSoundEffect(soundEffectPath) {
+        if (soundEffectPath === 'none' || !soundEffectPath) {
+            console.log("効果音は指定されていません。");
+            return;
+        }
+
+        try {
+            // AudioContextがsuspendedの場合に再開を試みる
+            if (audioContext.state === 'suspended') {
+                await audioContext.resume();
+            }
+
+            // 効果音ファイルをサーバーから取得
+            const response = await fetch(soundEffectPath);
+            if (!response.ok) {
+                console.error(`効果音のロードに失敗しました: ${soundEffectPath}`, response.status);
+                throw new Error(`効果音 '${soundEffectPath}' のロードに失敗しました。`);
+            }
+            const arrayBuffer = await response.arrayBuffer();
+
+            // Web Audio APIでバイナリデータをオーディオバッファにデコード
+            const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+
+            // デコードした音声を再生
+            const source = audioContext.createBufferSource();
+            source.buffer = audioBuffer;
+            source.connect(audioContext.destination);
+            source.start(0); // すぐに再生を開始
+
+            console.log(`効果音 '${soundEffectPath}' を再生しました。`);
+
+        } catch (error) {
+            console.error('効果音の再生に失敗しました:', error);
+        }
+    }
+
+
+    submitBtn.addEventListener('click', async () => {
+        const userText = finalTranscript + interimTranscript;
+        if (!userText.trim()) { displayError("文字起こしされたテキストがありません。"); return; }
+        
+        if (emotionUpdateInterval) clearInterval(emotionUpdateInterval);
+        setLoading(true);
+
+        try {
+            appendMessageToStory(`あなた: 「${userText}」`, 'user-prompt');
+
+            const response = await fetch(`${serverUrl}/generate-story`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userText: userText,
+                    messageHistory: messageHistory,
+                    emotionHistory: emotionHistoryLog,
+                }),
+            });
+
+            if (!response.ok) {
+                const errData = await response.json();
+                console.error('Story generation failed with response:', response.status, errData);
+                throw new Error(errData.error || '物語の生成に失敗しました。');
+            }
+
+            const data = await response.json();
+            messageHistory = data.updatedHistory;
+            appendMessageToStory(data.newStoryPart, 'assistant-response');
+            
+            // ★修正: 効果音の再生ロジックを追加
+            if (data.soundEffect) {
+                await playSoundEffect(data.soundEffect); // 効果音を再生
+            }
+
+            if (data.audioBase64) {
+                if (audioContext.state === 'suspended') {
+                    await audioContext.resume();
+                }
+                await playAudio(data.audioBase64); // 物語音声を再生
+            }
+
+            finalTranscript = '';
+            interimTranscript = '';
+            transcriptText.textContent = '';
+            emotionHistoryLog = [];
+
+        } catch (error) {
+            console.error("物語生成エラー:", error);
+            displayError(error.message);
+        } finally {
+            setLoading(false);
+            emotionUpdateInterval = setInterval(updateEmotionPreview, 1000);
+        }
+    });
 
     // --- ヘルパー関数 ---
     function downsampleBuffer(buffer, inputSampleRate, outputSampleRate) {
