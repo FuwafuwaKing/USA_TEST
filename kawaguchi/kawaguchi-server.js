@@ -41,7 +41,7 @@ const wss = new WebSocketServer({ server });
 const port = 3000;
 
 app.use(express.json({ limit: '10mb' }));
-app.use(express.static('__dirname')); //public -> __dirname
+app.use(express.static('public'));
 
 // --- WebSocket接続の処理 (変更なし) ---
 wss.on('connection', (ws) => {
@@ -133,74 +133,75 @@ app.post('/analyze-emotion', async (req, res) => {
 
 // ★修正点2: 物語生成エンドポイントを感情履歴に対応させる
 app.post('/generate-story', async (req, res) => {
-    const { userText, messageHistory, emotionHistory } = req.body;
-  
-    if (!userText || !messageHistory || !emotionHistory) {
-      return res.status(400).json({ error: '必要なデータが不足しています。' });
-    }
-  
-      try {
-          let emotionSummary = '感情の変化なし';
-          if (emotionHistory.length > 0) {
+  const { userText, messageHistory, emotionHistory } = req.body; // messageHistory には system プロンプトが含まれている想定
+
+  if (!userText || !messageHistory || !emotionHistory) {
+    return res.status(400).json({ error: '必要なデータが不足しています。' });
+  }
+
+  try {
+      let emotionSummary = '感情の変化なし';
+      if (emotionHistory.length > 0) {
           const uniqueEmotions = emotionHistory.filter((emotion, index) => emotion !== emotionHistory[index - 1]);
           emotionSummary = uniqueEmotions.join(' → ');
-          }
-  
-          const soundEffectForPrompt = availableSoundEffects.map(effect => `${effect.name} (${effect.file})`).join(', ');
-          // ★修正3: systemPrompt の生成ロジックはここではない。既にmessageHistory[0]に含まれているはず
-          //        GPT-4oにJSON形式での応答を強制するには、messages配列の最後に含めるのが一般的
-          //        ただし、今回はresponse_formatでJSONを強制しているので、プロンプトに書く必要はないかもしれないが、念のため残す
-          const currentSystemPrompt = `あなたはプロのホラー作家です。ユーザーの反応や感情を物語に巧みに取り入れ、恐ろしく、かつ一貫性のある物語を生成してください。
-              - ユーザーの感情が「恐怖」や「驚き」なら、さらに恐怖を煽る展開にしてください。
-              - ユーザーの感情が「喜び」や「無表情」なら、それを不気味な要素として「なぜこの状況で笑っているんだ...？」のように物語に反映させてください。
-  
-              必ず以下のJSON形式だけで応答してください。
-              {
-              "story": "ここに物語の続きの文章（1～2文）を記述",
-              "soundEffect": "物語の雰囲気に最も合う効果音を、提示されたリストの中から選び、その「ファイル名」だけを記述。例: 'SoundEffects/doorKnock.mp3'。なければ'none'とする。",
-              "isLastPart": trueかfalseのboolean値。物語を完結させるべきと判断したらtrueにする。
-              }
-              利用可能な効果音リスト: ${soundEffectForPrompt}`;
-          
-          // ★修正4: messageHistory のシステムプロンプトを更新する代わりに、
-          //         新しくメッセージを作成して追加する形式に戻すか、
-          //         元の initializeStory() で設定したシステムプロンプトを使うかを明確にする
-          //         現状の`messageHistory`は既にinitializeStoryAndAudioで正しく初期化されているので、
-          //         ここで`newHistory[0]`を書き換えるのではなく、そのまま利用する
-          //         system promptは初回に設定されるため、generate-storyではuserの入力とassistantの応答を追加する
-          
-          const userMessage = { role: "user", content: `ユーザーの反応: 「${userText}」\nその間の感情の推移: 「${emotionSummary}」` };
-          const updatedHistory = [...messageHistory, userMessage]; // ユーザーメッセージを追加
-  
-          const completion = await openai.chat.completions.create({
-              model: "gpt-4o",
-              messages: updatedHistory, // 更新されたメッセージ履歴を渡す
-              max_tokens: 250,
-              temperature: 0.8,
-              response_format: { type: 'json_object' },
-          });
-  
-          const aiResponse = JSON.parse(completion.choices[0].message.content);
-          const { story, soundEffect, isLastPart } = aiResponse;
-  
-          // ★修正5: synthesizeSpeech に渡す変数を newStoryPart から story に変更
-          const audioBase64 = await synthesizeSpeech(story);
-  
-          const finalHistory = [...updatedHistory, { role: "assistant", content: story }];
-          res.json({
-              newStoryPart: story, // クライアントには newStoryPart として返す
-              audioBase64,
-              soundEffect,
-              isLastPart,
-              updatedHistory: finalHistory
-          });                                                     
-  
-      } catch (error) {
-          console.error('Story Generation Error:', error);
-          res.status(500).json({ error: '物語の生成に失敗しました。' });
       }
-  
-  });
+
+      // ★修正1: OpenAIに送るためのシステムプロンプトを再構築
+      const soundEffectForPrompt = availableSoundEffects.map(effect => `${effect.name} (${effect.file})`).join(', ');
+      const baseSystemPrompt = messageHistory[0].content; // 最初のシステムプロンプトの内容を取得
+
+      const fullSystemPromptContent = `${baseSystemPrompt}
+          利用可能な効果音リスト: ${soundEffectForPrompt}
+          必ず以下のJSON形式だけで応答してください。
+          {
+          "story": "ここに物語の続きの文章（1～2文）を記述",
+          "soundEffect": "物語の雰囲気に最も合う効果音を、提示されたリストの中から選び、その「ファイル名」だけを記述。例: 'SoundEffects/doorKnock.mp3'。なければ'none'とする。",
+          "isLastPart": trueかfalseのboolean値。物語を完結させるべきと判断したらtrueにする。
+          }`;
+
+      const userMessage = { role: "user", content: `ユーザーの反応: 「${userText}」\nその間の感情の推移: 「${emotionSummary}」` };
+      
+      // ★修正2: messagesToSend の構築方法
+      const messagesToSend = [
+          { role: "system", content: fullSystemPromptContent }, // 更新されたシステムプロンプトを最初に置く
+          ...messageHistory.slice(1), // 既存の履歴の最初の要素（古いシステムプロンプト）を除外し、残りを追加
+          userMessage
+      ];
+
+      const completion = await openai.chat.completions.create({
+          model: "gpt-4o",
+          messages: messagesToSend, // 更新されたメッセージ履歴を渡す
+          max_tokens: 250,
+          temperature: 0.8,
+          response_format: { type: 'json_object' },
+      });
+
+      const aiResponse = JSON.parse(completion.choices[0].message.content);
+      let { story, soundEffect, isLastPart } = aiResponse; 
+
+      if (!story || story.trim() === '') {
+          console.warn("OpenAI returned an empty story. Using a default message.");
+          story = "すみません、物語を生成できませんでした。もう一度話しかけてください。";
+      }
+
+      const audioBase64 = await synthesizeSpeech(story);
+
+      // ★修正3: finalHistory の構築方法。最新のシステムプロンプトを含めて返す
+      const finalHistory = [...messageHistory, userMessage, { role: "assistant", content: story }];
+      
+      res.json({
+          newStoryPart: story,
+          audioBase64,
+          soundEffect,
+          isLastPart,
+          updatedHistory: finalHistory
+      });                                                     
+
+  } catch (error) {
+      console.error('Story Generation Error:', error);
+      res.status(500).json({ error: '物語の生成に失敗しました。' });
+  }
+});
 
 // --- サーバーの起動 ---
 server.listen(port, () => {

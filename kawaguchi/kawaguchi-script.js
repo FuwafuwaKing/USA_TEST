@@ -9,8 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const loader = document.getElementById('loader'); // ★重要: loaderを再度追加
     const errorMessage = document.getElementById('error-message'); // ★重要: errorMessageを再度追加
     const cameraPreview = document.getElementById('camera-preview');
-    // ★修正1: captureCanvasの取得が間違っています。これを修正します。
-    const captureCanvas = document.getElementById('capture-canvas');
+    const captureCanvas = document.getElementById('capture-canvas'); // 正しい記述
     const emotionStatus = document.getElementById('emotion-status'); // ★重要: emotionStatusを再度追加
     const transcriptText = document.getElementById('transcript-text');
     const transcriptStatus = document.getElementById('transcript-status');
@@ -26,8 +25,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const wsUrl = `ws://${window.location.host}`;
     
     let emotionHistoryLog = [];
-    
-    let initialStory = "";
 
     // --- WebSocketの初期化 ---
     const ws = new WebSocket(wsUrl);
@@ -51,10 +48,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function initializeStoryAndAudio() {
         // ★修正2: initializeStory() の内容を直接ここに記述、または関数を呼び出す
-        initialStory = "あなたは古い洋館に足を踏み入れた。軋む床、壁に飾られた不気味な肖像画...。廊下の突き当たりには、古びた木製の扉が一つだけある。なぜか、その扉が気になる。";
-        const systemPrompt = `あなたはプロのホラー作家です。ユーザーの反応や感情を物語に巧みに取り入れ、恐ろしく、かつ一貫性のある物語を生成してください。\n- ユーザーの感情が「恐怖」や「驚き」なら、さらに恐怖を煽る展開にしてください。\n- ユーザーの感情が「喜び」や「無表情」なら、それを不気味な要素として「なぜこの状況で笑っているんだ...？」のように物語に反映させてください。\n- 物語は簡潔に、数文で完結させてください。`;
-        messageHistory = [ { role: "system", content: systemPrompt }, { role: "assistant", content: initialStory } ];
-        storyContainer.textContent = initialStory;
+        const initialStoryText = "あなたは古い洋館に足を踏み入れた。軋む床、壁に飾られた不気味な肖像画...。廊下の突き当たりには、古びた木製の扉が一つだけある。なぜか、その扉が気になる。";
+        const systemPrompt = `あなたはプロのホラー作家です。ユーザーの反応や感情を物語に巧みに取り入れ、恐ろしく、かつ一貫性のある物語を生成してください。\n- ユーザーの感情が「恐怖」や「驚き」なら、さらに恐怖を煽る展開にしてください。\n- ユーザーの感情が「喜び」や「無表情」なら、それを不気味な要素として「なぜこの状況で笑っているんだ...？」のように物語に反映させてください。\n- 物語は簡潔に、数文で完結させてください。**必ずJSON形式で応答してください。**`;
+        messageHistory = [ { role: "system", content: systemPrompt }, { role: "assistant", content: initialStoryText } ];
+        storyContainer.textContent = initialStoryText;
 
         try {
             if (audioContext.state === 'suspended') {
@@ -64,7 +61,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const response = await fetch(`${serverUrl}/synthesize-speech`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ text: initialStory }),
+                body: JSON.stringify({ text: initialStoryText }),
             });
 
             if (!response.ok) {
