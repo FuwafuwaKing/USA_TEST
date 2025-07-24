@@ -1,0 +1,121 @@
+/* style.css (更新版) */
+body {
+    font-family: 'Helvetica Neue', Arial, sans-serif;
+    background-color: #121212;
+    color: #e0e0e0;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    min-height: 100vh;
+    margin: 0;
+    padding: 20px;
+    box-sizing: border-box;
+}
+#container {
+    width: 100%;
+    max-width: 600px;
+    background-color: #1e1e1e;
+    border-radius: 8px;
+    padding: 24px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+h1 {
+    color: #bb86fc;
+    text-align: center;
+    margin-top: 0;
+    margin-bottom: 24px;
+}
+#camera-container {
+    position: relative;
+    width: 100%;
+    margin-bottom: 20px;
+}
+#camera-preview {
+    width: 100%;
+    border-radius: 8px;
+    background-color: #000;
+    transform: scaleX(-1);
+}
+#emotion-status-container {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    background-color: rgba(0, 0, 0, 0.7);
+    color: white;
+    padding: 5px 10px;
+    border-radius: 12px;
+    font-size: 14px;
+}
+#emotion-status {
+    font-weight: bold;
+    color: #ffab40;
+}
+#story-container {
+    background-color: #2c2c2c;
+    border-radius: 4px;
+    padding: 16px;
+    min-height: 150px;
+    max-height: 300px;
+    overflow-y: auto;
+    margin-bottom: 20px;
+    white-space: pre-wrap;
+    line-height: 1.6;
+}
+.user-input-area {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 20px;
+}
+/* 文字起こしエリアのスタイル */
+#transcript-container {
+    background-color: #333;
+    border: 1px solid #444;
+    border-radius: 4px;
+    padding: 12px;
+    min-height: 80px;
+}
+#transcript-status {
+    font-style: italic;
+    color: #aaa;
+    font-size: 14px;
+    margin-bottom: 8px;
+}
+#transcript-text {
+    margin: 0;
+    font-size: 16px;
+    color: #e0e0e0;
+}
+#submit-btn {
+    padding: 12px 20px;
+    border-radius: 4px;
+    border: none;
+    background-color: #bb86fc;
+    color: #121212;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    font-size: 16px;
+}
+#submit-btn:disabled {
+    background-color: #555;
+    cursor: not-allowed;
+}
+#loader {
+    text-align: center;
+    padding: 10px;
+    display: none;
+    font-size: 16px;
+}
+.user-prompt {
+    color: #81d4fa;
+    font-style: italic;
+    margin-top: 16px;
+    padding-left: 16px;
+    border-left: 3px solid #81d4fa;
+}
+.error-message {
+    color: #cf6679;
+    text-align: center;
+    margin-top: 10px;
+}

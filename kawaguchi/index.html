@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AIインタラクティブホラー</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="container">
+    <h1>AIインタラクティブホラー 👻</h1>
+
+    <div id="camera-container">
+        <video id="camera-preview" autoplay muted playsinline></video>
+        <canvas id="capture-canvas" style="display:none;"></canvas>
+        <div id="emotion-status-container">
+            現在の感情: <span id="emotion-status">分析中...</span>
+        </div>
+    </div>
+    
+    <div id="story-container">ここに物語が表示されます...</div>
+
+    <div id="transcript-container" class="user-input-area">
+        <div id="transcript-status">🎤 マイクに話しかけてください...</div>
+        <p id="transcript-text"></p>
+    </div>
+
+    <div id="start-btn-container" class="user-input-area">
+        <button id="start-btn">開始</button>
+    </div>  
+
+    <div class="user-input-area">
+        <button id="submit-btn">この内容で続きを生成</button>
+    </div>
+
+    <div id="loader">生成中...</div>
+    <div id="error-message" class="error-message"></div>
+</div>
+
+<audio id="sound-effect-player" preload="auto"></audio> <!-- ★ここを追加！ -->
+
+<script src="script.js"></script>
+
+</body>
+</html>
